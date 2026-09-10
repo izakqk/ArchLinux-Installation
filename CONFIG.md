@@ -5,7 +5,13 @@ Arch Linux has a reputation for being intimidating, but you've got two real path
 ## Phase 1: Get the Installer Onto a USB Drive
 
 1. **Download the ISO** from the [official Arch Linux downloads page](https://archlinux.org/download/). Grab the latest release — Arch is a rolling release, so there's no "version number" to worry about, just get the current image.
-2. **Verify the download (optional but good practice)**. The download page lists a checksum you can compare against your file using `sha256sum` on Linux/macOS, or a tool like `CertUtil` on Windows. This confirms the file wasn't corrupted or tampered with. # You can skip it
+2. **Verify the download.** There are two levels of verification:
+   - **Checksum only** (confirms the file isn't corrupted): compare against the checksum on the download page using `sha256sum` on Linux/macOS, or `CertUtil` on Windows.
+   - **GPG signature** (the official method — confirms it's actually from Arch, not just intact): download the `.sig` file from the [checksums section](https://archlinux.org/download/#checksums) into the same folder as the ISO, then run:
+     ```
+     gpg --keyserver-options auto-key-retrieve --verify archlinux-<version>-x86_64.iso.sig
+     ```
+     Look for `Good signature` in the output. # You can skip this step
 3. **Flash the ISO to your USB drive** using [Rufus](https://rufus.ie/) (Windows) or [BalenaEtcher](https://www.balena.io/etcher/) (Windows/macOS/Linux). This process erases everything on the USB drive, so back up anything on it first.
 
 ## Phase 2: Boot Into the Installer
@@ -196,7 +202,9 @@ hwclock --systohc
 
 Edit `/etc/locale.gen`, uncomment your locale (e.g. `en_US.UTF-8 UTF-8`), then run `locale-gen`. Create `/etc/locale.conf` with `LANG=en_US.UTF-8` inside it.
 
-If you set a non-US keyboard layout back in Phase 3, make it persist after reboot by creating `/etc/vconsole.conf` with `KEYMAP=de` (or whatever code you used) inside it.
+If you set a non-US keyboard layout back in Phase 3, make it persist after reboot by creating `/etc/vconsole.conf` with `KEYMAP=de` (or whatever code you used) inside it. If you do this, regenerate the initramfs so it picks up the change: `mkinitcpio -P`.
+
+You generally don't need to touch the initramfs otherwise — `mkinitcpio` already ran automatically when `pacstrap` installed the kernel. It only needs regenerating by hand later if you set up LVM, disk encryption, or RAID after the fact.
 
 Set a hostname: `echo myhostname > /etc/hostname`. Then add matching entries to `/etc/hosts` so the system resolves its own name correctly:
 
@@ -257,7 +265,37 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 You should see a line like `Found Windows Boot Manager on ...` in the output — if you don't, double-check that Windows's EFI partition is mounted at `/boot` (Step 4) before running this.
 
-**12. Enable networking, then exit and reboot**
+**12. Install a desktop environment (optional)**
+
+The base system installed so far is CLI-only — no graphics at all. That's fine if you're setting up a server or a minimal box, but for a regular desktop you'll want to pick one of these:
+
+**XFCE** (lightweight, beginner-friendly):
+```
+pacman -S xfce4 xfce4-goodies lightdm lightdm-gtk-greeter
+systemctl enable lightdm
+```
+
+**KDE Plasma** (modern, full-featured):
+```
+pacman -S plasma kde-applications sddm
+systemctl enable sddm
+```
+
+**GNOME** (clean, opinionated):
+```
+pacman -S gnome gnome-extra gdm
+systemctl enable gdm
+```
+
+Only install one of these three blocks — pick whichever fits, don't mix them. Each includes a **display manager** (LightDM/SDDM/GDM) — that's the login screen you'll see on boot, and enabling it is what actually gets you into a graphical session instead of a text login.
+
+Also worth installing here if you have a GPU driver need:
+```
+pacman -S mesa              # AMD/Intel open-source drivers
+pacman -S nvidia nvidia-utils   # Nvidia proprietary drivers
+```
+
+**13. Enable networking, then exit and reboot**
 
 ```
 systemctl enable NetworkManager
@@ -271,7 +309,7 @@ umount -R /mnt
 reboot
 ```
 
-Both methods land you at the same place — `archinstall` just automates steps 1–11 for you. (Note: `archinstall`'s guided flow can also detect an existing Windows install and offer a dual-boot-safe partition layout, if you'd rather not do this part by hand.)
+Both methods land you at the same place — `archinstall` just automates steps 1–12 for you. (Note: `archinstall`'s guided flow can also detect an existing Windows install and offer a dual-boot-safe partition layout, if you'd rather not do this part by hand.)
 
 ## Phase 6: First Boot
 
